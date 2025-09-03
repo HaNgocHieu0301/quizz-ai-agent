@@ -1,0 +1,66 @@
+Python Programming Basics
+
+Python is a high-level, interpreted programming language known for its simplicity and readability.
+
+Key Features:
+- Easy to read and write syntax
+- Interpreted language (no compilation needed)
+- Object-oriented and functional programming support
+- Extensive standard library
+- Cross-platform compatibility
+
+Basic Data Types:
+1. Numbers
+   - int: 42, -17, 0
+   - float: 3.14, -2.5, 0.0
+   - complex: 3+4j, 2-5j
+
+2. Strings
+   - "Hello World"
+   - 'Python Programming'
+   - """Multi-line strings"""
+
+3. Boolean
+   - True
+   - False
+
+4. Lists
+   - [1, 2, 3, 4]
+   - ['apple', 'banana', 'orange']
+   - [1, 'hello', True, 3.14]
+
+5. Dictionaries
+   - {'name': 'John', 'age': 25}
+   - {'key1': 'value1', 'key2': 'value2'}
+
+Control Structures:
+- if/elif/else statements for conditional execution
+- for loops for iteration
+- while loops for repeated execution
+- break and continue for loop control
+
+Functions:
+- Defined with 'def' keyword
+- Can have parameters and return values
+- Support default parameters and keyword arguments
+- Example: def greet(name): return f"Hello, {name}!"
+
+Common Operations:
+- Variable assignment: x = 5
+- Arithmetic: +, -, *, /, %, **
+- Comparison: ==, !=, <, >, <=, >=
+- Logical: and, or, not
+- String formatting: f"Hello {name}"
+
+Error Handling:
+- try/except blocks catch exceptions
+- finally block executes regardless
+- raise keyword throws custom exceptions
+
+Popular Libraries:
+- NumPy: Numerical computing
+- Pandas: Data analysis
+- Matplotlib: Data visualization
+- Requests: HTTP requests
+- Django/Flask: Web development
+- TensorFlow/PyTorch: Machine learning

@@ -1,0 +1,50 @@
+Machine Learning Fundamentals
+
+Machine Learning (ML) is a subset of artificial intelligence that enables computers to learn and make decisions without being explicitly programmed for every task.
+
+Key Types of Machine Learning:
+
+1. Supervised Learning
+   - Uses labeled training data
+   - Examples: Classification, Regression
+   - Algorithms: Linear Regression, Decision Trees, SVM
+
+2. Unsupervised Learning
+   - Finds patterns in unlabeled data
+   - Examples: Clustering, Association Rules
+   - Algorithms: K-Means, Hierarchical Clustering
+
+3. Reinforcement Learning
+   - Learns through trial and error
+   - Uses rewards and penalties
+   - Applications: Game playing, Robotics
+
+Popular Machine Learning Algorithms:
+- Linear Regression: Predicts continuous values
+- Decision Trees: Creates tree-like model of decisions
+- Neural Networks: Mimics human brain structure
+- Support Vector Machines: Finds optimal decision boundaries
+- Random Forest: Combines multiple decision trees
+
+Real-world Applications:
+- Image Recognition: Identifying objects in photos
+- Natural Language Processing: Understanding human language
+- Recommendation Systems: Suggesting products or content
+- Fraud Detection: Identifying suspicious transactions
+- Autonomous Vehicles: Self-driving cars
+
+Machine Learning Process:
+1. Data Collection: Gather relevant data
+2. Data Preprocessing: Clean and prepare data
+3. Model Selection: Choose appropriate algorithm
+4. Training: Teach the model using training data
+5. Evaluation: Test model performance
+6. Deployment: Use model in production
+
+Key Concepts:
+- Training Data: Data used to teach the model
+- Test Data: Data used to evaluate model performance
+- Features: Input variables used for prediction
+- Labels: Output variables (in supervised learning)
+- Overfitting: Model performs well on training but poorly on new data
+- Cross-validation: Technique to assess model generalization
