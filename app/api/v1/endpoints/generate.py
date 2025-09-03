@@ -32,8 +32,8 @@ router = APIRouter()
 async def generate_content(
     file: Optional[UploadFile] = File(None, description="File to process (.txt, .md, .pdf, .docx, .png, .jpg, .jpeg)"),
     text: Optional[str] = Form(None, description="Text content to process (alternative to file upload)"),
-    num_flashcards: Optional[int] = Form(5, ge=1, le=settings.max_flashcards, description="Number of flashcards to generate"),
-    num_mcqs: Optional[int] = Form(5, ge=1, le=settings.max_mcqs, description="Number of multiple choice questions to generate")
+    num_flashcards: Optional[int] = Form(5, ge=0, le=settings.max_flashcards, description="Number of flashcards to generate"),
+    num_mcqs: Optional[int] = Form(5, ge=0, le=settings.max_mcqs, description="Number of multiple choice questions to generate")
 ):
     """
     Generate educational content from uploaded files OR text input.

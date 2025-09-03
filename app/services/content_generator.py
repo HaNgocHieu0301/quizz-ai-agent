@@ -8,7 +8,8 @@ from app.models.response_models import (
     GeneratedContent, 
     ResponseMetadata,
     Flashcard,
-    MultipleChoiceQuestion
+    MultipleChoiceQuestion,
+    Card
 )
 from app.core.config import settings
 
@@ -113,18 +114,27 @@ class ContentGeneratorService:
         )
         
         # Convert to response models
-        flashcards = [
-            Flashcard(front=fc["front"], back=fc["back"])
-            for fc in ai_response["flashcards"]
-        ]
+        # flashcards = [
+        #     Flashcard(front=fc["front"], back=fc["back"])
+        #     for fc in ai_response["flashcards"]
+        # ]
         
-        mcqs = [
-            MultipleChoiceQuestion(
-                question=mcq["question"],
-                options=mcq["options"],
-                correct_answer=mcq["correct_answer"]
+        # mcqs = [
+        #     MultipleChoiceQuestion(
+        #         question=mcq["question"],
+        #         options=mcq["options"],
+        #         correct_answer=mcq["correct_answer"]
+        #     )
+        #     for mcq in ai_response["multiple_choice_questions"]
+        # ]
+        cards = [
+            Card(
+                term=card["term"],
+                definition=card["definition"],
+                type=card["type"],
+                options=card["options"]
             )
-            for mcq in ai_response["multiple_choice_questions"]
+            for card in ai_response["cards"]
         ]
         
         # Calculate processing time
@@ -139,7 +149,6 @@ class ContentGeneratorService:
                 processing_time_seconds=round(processing_time, 2)
             ),
             data=GeneratedContent(
-                flashcards=flashcards,
-                multiple_choice_questions=mcqs
+                cards=cards
             )
         )

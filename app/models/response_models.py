@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+class Card(BaseModel):
+    term: str
+    definition: str
+    type: int
+    options: List[str]
 
 class Flashcard(BaseModel):
     front: str
@@ -13,10 +18,11 @@ class MultipleChoiceQuestion(BaseModel):
     correct_answer: str
 
 
+# class GeneratedContent(BaseModel):
+#     flashcards: List[Flashcard]
+#     multiple_choice_questions: List[MultipleChoiceQuestion]
 class GeneratedContent(BaseModel):
-    flashcards: List[Flashcard]
-    multiple_choice_questions: List[MultipleChoiceQuestion]
-
+    cards: List[Card]
 
 class ResponseMetadata(BaseModel):
     original_filename: str
@@ -28,7 +34,6 @@ class GenerateContentResponse(BaseModel):
     status: str
     metadata: ResponseMetadata
     data: GeneratedContent
-
 
 class ErrorResponse(BaseModel):
     status: str = "error"

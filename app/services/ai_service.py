@@ -105,31 +105,24 @@ Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choi
 REQUIREMENTS:
 1. Flashcards should focus on key terms, concepts, definitions, and important facts
 2. Multiple choice questions should test understanding and comprehension
-3. Each MCQ should have 4 options (A, B, C, D) with one correct answer
+3. Each MCQ should have one correct answer with 3 other wrong options
 4. Content should be educational and suitable for learning/studying
 
 Return your response as a JSON object with this exact structure:
 {{
-    "flashcards": [
+    "cards": [
         {{
-            "front": "Question or term",
-            "back": "Answer or definition"
-        }}
-    ],
-    "multiple_choice_questions": [
-        {{
-            "question": "Question text",
-            "options": {{
-                "A": "Option A text",
-                "B": "Option B text", 
-                "C": "Option C text",
-                "D": "Option D text"
-            }},
-            "correct_answer": "A"
+            "term": "Question or term",
+            "definition": "Answer or definition"
+            "type": "Flashcard or Mcq (flashcard = 1, mcp = 2)
+            "options": [
+                "Option A text",
+                "Option B text", 
+                "Option C text",
+            ] (If type = flashcard = 1 options = []. Besides, options don't contain correct answer)
         }}
     ]
 }}
-
 Ensure the JSON is valid and properly formatted.
 """
     
@@ -192,25 +185,25 @@ Ensure the JSON is valid and properly formatted.
             # Parse JSON
             parsed_data = json.loads(content.strip())
             
-            # Validate structure
-            if "flashcards" not in parsed_data or "multiple_choice_questions" not in parsed_data:
-                raise ValueError("Missing required fields in AI response")
+            # # Validate structure
+            # if "flashcards" not in parsed_data or "multiple_choice_questions" not in parsed_data:
+            #     raise ValueError("Missing required fields in AI response")
             
-            # Validate flashcards
-            for flashcard in parsed_data["flashcards"]:
-                if "front" not in flashcard or "back" not in flashcard:
-                    raise ValueError("Invalid flashcard structure")
+            # # Validate flashcards
+            # for flashcard in parsed_data["flashcards"]:
+            #     if "front" not in flashcard or "back" not in flashcard:
+            #         raise ValueError("Invalid flashcard structure")
             
-            # Validate MCQs
-            for mcq in parsed_data["multiple_choice_questions"]:
-                if not all(key in mcq for key in ["question", "options", "correct_answer"]):
-                    raise ValueError("Invalid MCQ structure")
+            # # Validate MCQs
+            # for mcq in parsed_data["multiple_choice_questions"]:
+            #     if not all(key in mcq for key in ["question", "options", "correct_answer"]):
+            #         raise ValueError("Invalid MCQ structure")
                 
-                if not isinstance(mcq["options"], dict):
-                    raise ValueError("MCQ options must be a dictionary")
+            #     if not isinstance(mcq["options"], dict):
+            #         raise ValueError("MCQ options must be a dictionary")
                 
-                if mcq["correct_answer"] not in mcq["options"]:
-                    raise ValueError("Correct answer not found in options")
+            #     if mcq["correct_answer"] not in mcq["options"]:
+            #         raise ValueError("Correct answer not found in options")
             
             return parsed_data
             

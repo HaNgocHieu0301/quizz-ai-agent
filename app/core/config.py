@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Union
 
 
 class Settings(BaseSettings):
@@ -10,7 +10,12 @@ class Settings(BaseSettings):
     
     # API
     api_v1_prefix: str = "/api/v1"
-    cors_origins: List[str] = ["*"]
+    cors_origins: Union[str, List[str]] = ["*"]
+    
+    # HTTPS Configuration
+    use_https: bool = False
+    ssl_cert_path: str = "certs/cert.pem"
+    ssl_key_path: str = "certs/key.pem"
     
     # Google Gemini
     gemini_api_key: str
@@ -37,6 +42,15 @@ class Settings(BaseSettings):
             self.supported_doc_extensions + 
             self.supported_image_extensions
         )
+    
+    @property
+    def get_cors_origins(self) -> List[str]:
+        """Get CORS origins as list, handling both string and list formats"""
+        if isinstance(self.cors_origins, str):
+            if self.cors_origins == "*":
+                return ["*"]
+            return [origin.strip() for origin in self.cors_origins.split(",")]
+        return self.cors_origins
     
     class Config:
         env_file = ".env"

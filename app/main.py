@@ -29,7 +29,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.get_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,7 +52,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content=ErrorResponse(
             error_type="InternalServerError",
             message="An unexpected error occurred"
-        ).dict()
+        ).model_dump()
     )
 
 # Root endpoint
@@ -78,11 +78,25 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Configure SSL if enabled
+    ssl_config = {}
+    if settings.use_https:
+        if os.path.exists(settings.ssl_cert_path) and os.path.exists(settings.ssl_key_path):
+            ssl_config = {
+                "ssl_certfile": settings.ssl_cert_path,
+                "ssl_keyfile": settings.ssl_key_path
+            }
+            logger.info("HTTPS enabled with SSL certificates")
+        else:
+            logger.warning("HTTPS enabled but SSL certificates not found. Running with HTTP.")
     
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,
-        log_level="info"
+        log_level="info",
+        **ssl_config
     )

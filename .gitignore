@@ -53,6 +53,9 @@ htmlcov/
 uploads/
 temp/
 
+# SSL Certificates
+certs/
+
 .env
 .venv
 env/

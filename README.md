@@ -41,7 +41,11 @@ pip install -r requirements.txt
 
 4. **Run the application**
 ```bash
+# HTTP (development)
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# HTTPS (for remote access)
+python run_https.py
 ```
 
 ### Docker Deployment
@@ -56,6 +60,112 @@ docker-compose up --build
 ```bash
 docker build -t ai-learning-generator .
 docker run -p 8000:8000 -e GEMINI_API_KEY=your_key_here ai-learning-generator
+```
+
+## HTTPS Setup (Local Development)
+
+To run this application with HTTPS locally on any computer, follow these steps to set up SSL certificates.
+
+### Option 1: Self-Signed Certificates (Quick Setup)
+
+1. **Create certificates directory**
+```bash
+mkdir -p certs
+```
+
+2. **Generate self-signed certificate**
+```bash
+# Generate private key
+openssl genrsa -out certs/key.pem 2048
+
+# Generate certificate (valid for 365 days)
+openssl req -new -x509 -key certs/key.pem -out certs/cert.pem -days 365 \
+  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+```
+
+3. **Update environment configuration**
+```bash
+# In your .env file, set:
+USE_HTTPS=True
+SSL_CERT_PATH=certs/cert.pem
+SSL_KEY_PATH=certs/key.pem
+```
+
+4. **Run with HTTPS enabled**
+```bash
+python run_https.py
+```
+
+5. **Access the application**
+```bash
+# Open in your browser
+https://localhost:8000
+```
+
+⚠️ **Note**: Browsers will show a security warning for self-signed certificates. Click "Advanced" → "Proceed to localhost (unsafe)" to continue.
+
+### Option 2: Using mkcert (Trusted Local Certificates)
+
+For a better development experience without browser security warnings:
+
+1. **Install mkcert**
+```bash
+# macOS
+brew install mkcert  # macOS
+# Ubuntu/Debian
+sudo apt install libnss3-tools
+wget -O mkcert https://dl.filippo.io/mkcert/latest?for=linux/amd64
+chmod +x mkcert
+sudo mv mkcert /usr/local/bin/
+
+# Windows (using Chocolatey)
+choco install mkcert
+```
+
+2. **Create local CA and generate certificates**
+```bash
+# Install local CA
+mkcert -install
+
+# Generate certificate for localhost
+mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1
+```
+
+3. **Update environment and run**
+```bash
+# In your .env file:
+USE_HTTPS=True
+SSL_CERT_PATH=certs/cert.pem
+SSL_KEY_PATH=certs/key.pem
+
+# Run the application
+python run_https.py
+```
+4. **Access without warnings**
+```bash
+# Open in your browser (no security warnings!)
+https://localhost:8000
+```
+
+### Docker HTTPS Setup
+
+1. **Mount certificates in Docker**
+```bash
+# Create docker-compose.override.yml
+version: '3.8'
+services:
+  app:
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      - USE_HTTPS=true
+    ports:
+      - "8000:8000"
+```
+
+2. **Run with HTTPS**
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up --build
 ```
 
 ## API Usage
@@ -75,6 +185,7 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key_here ai-learning-generator
 
 #### Example Request
 
+**Local HTTP:**
 ```bash
 curl -X POST "http://localhost:8000/api/v1/generate" \
   -H "accept: application/json" \
@@ -82,6 +193,17 @@ curl -X POST "http://localhost:8000/api/v1/generate" \
   -F "file=@document.pdf" \
   -F "num_flashcards=10" \
   -F "num_mcqs=5"
+```
+
+**Local HTTPS:**
+```bash
+curl -X POST "https://localhost:8000/api/v1/generate" \
+  -H "accept: application/json" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@document.pdf" \
+  -F "num_flashcards=10" \
+  -F "num_mcqs=5" \
+  -k  # Skip SSL verification for self-signed certificates (not need with mkcert)
 ```
 
 #### Example Response
@@ -149,6 +271,11 @@ MAX_MCQS=20
 # Optional - API Configuration
 API_V1_PREFIX=/api/v1
 CORS_ORIGINS=["*"]
+
+# Optional - HTTPS Configuration (for remote access)
+USE_HTTPS=False
+SSL_CERT_PATH=certs/cert.pem
+SSL_KEY_PATH=certs/key.pem
 ```
 
 ### Getting a Gemini API Key
@@ -200,6 +327,7 @@ open http://localhost:8000/docs
 
 ### Testing
 
+**Local HTTP Testing:**
 ```bash
 # Test the health endpoint
 curl http://localhost:8000/health
@@ -210,6 +338,20 @@ curl -X POST "http://localhost:8000/api/v1/generate" \
   -F "file=@test.txt" \
   -F "num_flashcards=3" \
   -F "num_mcqs=2"
+```
+
+**Local HTTPS Testing:**
+```bash
+# Test the health endpoint
+curl -k https://localhost:8000/health
+
+# Test file upload with HTTPS
+echo "This is a test document about machine learning." > test.txt
+curl -X POST "https://localhost:8000/api/v1/generate" \
+  -F "file=@test.txt" \
+  -F "num_flashcards=3" \
+  -F "num_mcqs=2" \
+  -k  # Skip SSL verification for self-signed certificates (not need with mkcert)
 ```
 
 ## Error Handling
@@ -252,8 +394,13 @@ docker run -d \
 
 The application includes health check endpoints:
 
-- `/health` - Basic health check
-- `/api/v1/health` - Detailed service health
+**HTTP:**
+- `http://localhost:8000/health` - Basic health check
+- `http://localhost:8000/api/v1/health` - Detailed service health
+
+**HTTPS:**
+- `https://localhost:8000/health` - Basic health check
+- `https://localhost:8000/api/v1/health` - Detailed service health
 
 ## Contributing
 
