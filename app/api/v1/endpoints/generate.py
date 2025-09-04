@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 
 from app.services.content_generator import ContentGeneratorService
-from app.models.response_models import GenerateContentResponse, ErrorResponse
+from app.models.response_models import GenerateContentResponse, GenerateChoicesResponse, ErrorResponse
 from app.core.exceptions import (
     UnsupportedFileTypeError,
     FileSizeExceededError,
@@ -193,3 +193,68 @@ async def generate_content(
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "AI Learning Tools Generator"}
+
+@router.post(
+    "/generate-choices",
+    response_model=GenerateChoicesResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        422: {"model": ErrorResponse, "description": "Validation Error"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
+    summary="Generate Multiple Choice Options",
+    description="Generate 3 incorrect options and 1 correct choice for a given question or term"
+)
+async def generate_choices(
+    input_text: str = Form(..., description="Question or term to generate choices for")
+):
+    """
+    Generate multiple choice options for a given question or term.
+    
+    The AI agent automatically determines the appropriate content type based on the input:
+    - Question: Generates answer choices (1 correct + 3 incorrect but related)
+    - Term: Generates definition choices (1 correct definition + 3 incorrect but related definitions)
+    - Content Type: Automatically determined as 'vocab' or 'knowledge' based on input context
+    
+    Returns 1 correct choice and 3 incorrect but plausible options.
+    """
+    
+    content_generator = ContentGeneratorService()
+    
+    try:
+        # Validate input text
+        if not input_text or not input_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_type="EmptyInputError",
+                    message="Input text cannot be empty"
+                ).model_dump()
+            )
+        
+        # Generate choices (AI agent will determine appropriate content type)
+        result = await content_generator.generate_choices(
+            input_text=input_text.strip()
+        )
+        
+        return result
+        
+    except (AIServiceError, ContentGenerationError) as e:
+        logger.error(f"AI service error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                error_type="AIServiceError",
+                message="Failed to generate choices. Please try again."
+            ).model_dump()
+        )
+    
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                error_type="InternalServerError",
+                message="An unexpected error occurred. Please try again."
+            ).model_dump()
+        )

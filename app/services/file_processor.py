@@ -5,7 +5,7 @@ from docx import Document
 from PIL import Image
 
 from app.core.exceptions import FileProcessingError
-from app.utils.file_helpers import validate_file_type, validate_file_size
+from app.utils.file_helpers import FileHelper
 
 
 class FileProcessor:
@@ -23,8 +23,8 @@ class FileProcessor:
             Dict containing processed content and metadata
         """
         # Validate file
-        validate_file_size(len(file_content))
-        file_type = validate_file_type(filename)
+        FileHelper.validate_file_size(len(file_content))
+        file_type = FileHelper.validate_file_type(filename)
         
         try:
             if file_type == "text":

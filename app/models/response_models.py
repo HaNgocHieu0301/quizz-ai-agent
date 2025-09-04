@@ -34,3 +34,12 @@ class ErrorResponse(BaseModel):
     error_type: str
     message: str
     details: Optional[Dict[str, Any]] = None
+
+class GenerateChoicesData(BaseModel):
+    correct_choice: str
+    options: List[str]  # 3 incorrect but related options
+
+class GenerateChoicesResponse(BaseModel):
+    status: str
+    metadata: ResponseMetadata
+    data: GenerateChoicesData

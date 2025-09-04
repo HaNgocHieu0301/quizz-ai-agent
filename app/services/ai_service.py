@@ -5,8 +5,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from app.core.config import settings
 from app.core.exceptions import AIServiceError, ContentGenerationError
-from app.utils.ai_response_schema import AIResponseSchemaHandler
-
+from app.utils.format_helpers import FormatHelper
+from app.utils.prompt_templates import prompt_manager
+from app.utils.file_helpers import FileHelper
 
 class AIService:
     """Handle AI interactions with Google Gemini"""
@@ -51,27 +52,54 @@ class AIService:
                 )
         except Exception as e:
             raise ContentGenerationError(f"Failed to generate content: {str(e)}")
+
+    async def generate_choices(
+        self, 
+        input_text: str
+    ) -> Dict[str, Any]:
+        """
+        Generate multiple choice options for a given question or term.
+        The AI agent automatically determines the appropriate content type.
+        """
+        try:
+            prompt = prompt_manager.get_choices_generation_prompt(input_text)
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            return FormatHelper.format_ai_response(response.content)
+        except Exception as e:
+            raise ContentGenerationError(f"Failed to generate choices: {str(e)}")
     
     async def _generate_from_text(self, text_content: str, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> Dict[str, Any]:
-        """Generate content from text"""
-        prompt = self._create_text_prompt(text_content, num_flashcards, num_mcqs, content_type)
+        """Generate content from text using prompt templates"""
+        prompt = prompt_manager.get_content_generation_prompt(
+            content=text_content,
+            num_flashcards=num_flashcards,
+            num_mcqs=num_mcqs,
+            content_type=content_type,
+            is_image=False
+        )
         
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-            return self._parse_ai_response(response.content)
+            return FormatHelper.format_ai_response(response.content)
         except Exception as e:
             raise AIServiceError(f"Gemini API call failed: {str(e)}")
     
     async def _generate_from_image(self, image_content: bytes, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> Dict[str, Any]:
-        """Generate content from image using multimodal capabilities"""
+        """Generate content from image using multimodal capabilities and prompt templates"""
         
         # Detect image format from image bytes
-        mime_type = self._detect_image_mime_type(image_content)
+        mime_type = FileHelper.get_image_mime_type(image_content)
         
         # Convert image to base64 for Gemini
         image_b64 = base64.b64encode(image_content).decode()
         
-        prompt = self._create_image_prompt(num_flashcards, num_mcqs, content_type)
+        prompt = prompt_manager.get_content_generation_prompt(
+            content="",
+            num_flashcards=num_flashcards,
+            num_mcqs=num_mcqs,
+            content_type=content_type,
+            is_image=True
+        )
         
         try:
             # For multimodal input, we need to structure the message with both text and image
@@ -88,146 +116,7 @@ class AIService:
                 }
             ]
             
-            # FIXED: Use the multimodal message_content instead of just the text prompt
             response = await self.llm.ainvoke([HumanMessage(content=message_content)])
-            return self._parse_ai_response(response.content)
+            return FormatHelper.format_ai_response(response.content)
         except Exception as e:
             raise AIServiceError(f"Gemini multimodal API call failed: {str(e)}")
-    
-    def _create_text_prompt(self, content: str, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> str:
-        """Create prompt for text-based content generation"""
-        
-        if content_type == "vocab":
-            focus_instruction = """
-FOCUS: Generate vocabulary-focused learning materials that emphasize key terms and their meanings.
-- Flashcards should focus on important vocabulary words and their definitions
-- MCQs should test understanding of vocabulary meanings and usage
-- Prioritize prominent words, technical terms, and key concepts that learners should know
-"""
-        else:  # knowledge
-            focus_instruction = """
-FOCUS: Generate comprehensive learning materials covering key concepts, facts, and important information.
-- Flashcards should focus on key terms, concepts, definitions, and important facts  
-- MCQs should test understanding and comprehension of the subject matter
-- Cover the main ideas and learning objectives from the content
-"""
-
-        format_template = AIResponseSchemaHandler.get_complete_format_template()
-
-        return f"""
-Analyze the following text content and generate educational materials.
-
-TEXT CONTENT:
-{content}
-
-{focus_instruction}
-
-Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choice questions based on the content.
-
-REQUIREMENTS:
-1. Content should be educational and suitable for learning/studying
-2. Each MCQ should have one correct answer with 3 other wrong options
-3. Focus on the most important and relevant information for learners
-
-{format_template}
-"""
-    
-    def _create_image_prompt(self, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> str:
-        """Create prompt for image-based content generation"""
-        
-        if content_type == "vocab":
-            focus_instruction = """
-FOCUS: Generate vocabulary-focused learning materials from the image content.
-- Focus on important vocabulary words, technical terms, and key concepts visible in the image
-- Flashcards should emphasize word-meaning relationships
-- MCQs should test vocabulary understanding and definitions
-"""
-        else:  # knowledge  
-            focus_instruction = """
-FOCUS: Generate comprehensive learning materials covering all key information in the image.
-- Focus on key concepts, facts, processes, and important information shown
-- Cover diagrams, charts, visual information, and any text content
-- Test overall understanding and comprehension of the subject matter
-"""
-
-        format_template = AIResponseSchemaHandler.get_complete_format_template()
-
-        return f"""
-Analyze the content shown in this image and generate educational materials based on what you can see and read.
-
-{focus_instruction}
-
-Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choice questions based on:
-- Any text visible in the image
-- Diagrams, charts, or visual information  
-- Key concepts or information presented
-- Important facts or data shown
-
-REQUIREMENTS:
-1. Content should be educational and suitable for learning/studying
-2. Each MCQ should have one correct answer with 3 other wrong options
-3. Focus on the most important and relevant information for learners
-
-{format_template}
-"""
-    
-    def _parse_ai_response(self, response_content: str) -> Dict[str, Any]:
-        """Parse and validate AI response"""
-        try:
-            # Try to extract JSON from the response
-            content = response_content.strip()
-            
-            # Remove markdown code blocks if present
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            
-            # Parse JSON
-            parsed_data = json.loads(content.strip())
-            
-            # # Validate structure
-            # if "flashcards" not in parsed_data or "multiple_choice_questions" not in parsed_data:
-            #     raise ValueError("Missing required fields in AI response")
-            
-            # # Validate flashcards
-            # for flashcard in parsed_data["flashcards"]:
-            #     if "front" not in flashcard or "back" not in flashcard:
-            #         raise ValueError("Invalid flashcard structure")
-            
-            # # Validate MCQs
-            # for mcq in parsed_data["multiple_choice_questions"]:
-            #     if not all(key in mcq for key in ["question", "options", "correct_answer"]):
-            #         raise ValueError("Invalid MCQ structure")
-                
-            #     if not isinstance(mcq["options"], dict):
-            #         raise ValueError("MCQ options must be a dictionary")
-                
-            #     if mcq["correct_answer"] not in mcq["options"]:
-            #         raise ValueError("Correct answer not found in options")
-            
-            return parsed_data
-            
-        except json.JSONDecodeError as e:
-            raise ContentGenerationError(f"Failed to parse AI response as JSON: {str(e)}")
-        except ValueError as e:
-            raise ContentGenerationError(f"Invalid AI response format: {str(e)}")
-        except Exception as e:
-            raise ContentGenerationError(f"Unexpected error parsing AI response: {str(e)}")
-    
-    def _detect_image_mime_type(self, image_content: bytes) -> str:
-        """Detect MIME type from image bytes"""
-        # Check image format by looking at file headers
-        if image_content.startswith(b'\xff\xd8\xff'):
-            return "image/jpeg"
-        elif image_content.startswith(b'\x89PNG\r\n\x1a\n'):
-            return "image/png"
-        elif image_content.startswith(b'GIF87a') or image_content.startswith(b'GIF89a'):
-            return "image/gif"
-        elif image_content.startswith(b'RIFF') and b'WEBP' in image_content[:12]:
-            return "image/webp"
-        else:
-            # Default to JPEG if we can't detect
-            return "image/jpeg"

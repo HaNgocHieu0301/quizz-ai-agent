@@ -45,7 +45,8 @@ ai-agent/
 │   │   ├── request_models.py  # Pydantic request validation models
 │   │   └── response_models.py # Pydantic response models
 │   └── utils/
-│       └── file_helpers.py    # File utility functions
+│       ├── file_helpers.py    # File utility functions
+│       └── prompt_templates.py # LangChain prompt templates for AI content generation
 ├── test_files/                # Sample files for testing
 ├── certs/                     # SSL certificates (local development)
 ├── Dockerfile                 # Container configuration
@@ -58,6 +59,7 @@ ai-agent/
 
 #### 1. API Layer (`app/api/v1/endpoints/generate.py`)
 - **Primary Endpoint**: `POST /api/v1/generate`
+- **Choices Endpoint**: `POST /api/v1/generate-choices`
 - **Input Validation**: Ensures exactly one input method (file or text)
 - **Parameter Handling**: Validates content type, flashcard/MCQ counts
 - **Error Management**: Comprehensive error handling with detailed responses
@@ -69,7 +71,7 @@ ai-agent/
 
 #### 3. AI Service (`app/services/ai_service.py`)
 - **Gemini Integration**: Manages Google Gemini 2.0 Flash API calls
-- **Prompt Engineering**: Creates specialized prompts for different content types
+- **Template-Based Prompts**: Uses LangChain prompt templates for consistent and maintainable prompt generation
 - **Multimodal Support**: Processes both text and image content
 - **Response Parsing**: Converts AI responses to structured data
 
@@ -77,6 +79,12 @@ ai-agent/
 - **Format Detection**: Identifies and validates file types
 - **Content Extraction**: Extracts text from various document formats
 - **Size Validation**: Enforces file size limits
+
+#### 5. Prompt Templates (`app/utils/prompt_templates.py`)
+- **Structured Templates**: LangChain-based prompt templates for consistent AI interactions
+- **Content Generation Templates**: Separate templates for vocab/knowledge and text/image content
+- **Choices Generation Templates**: Specialized templates for multiple choice option generation
+- **Template Manager**: Central management system for all prompt templates with automatic selection logic
 
 ## API Specification
 
@@ -114,6 +122,43 @@ ai-agent/
         "type": 1, // 1 = flashcard, 2 = MCQ
         "options": [] // Empty for flashcards, contains wrong answers for MCQs
       }
+    ]
+  }
+}
+```
+
+### Choices Endpoint: `/api/v1/generate-choices`
+
+#### Parameters
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `input_text` | String | Yes | - | Question or term to generate choices for |
+
+#### Input Types
+- **Question**: Generates answer choices (1 correct + 3 incorrect but related answers)
+- **Term**: Generates definition choices (1 correct definition + 3 incorrect but related definitions)
+
+#### Automatic Content Type Detection
+- **AI-Powered Decision**: The AI agent automatically determines whether to use vocabulary-focused or knowledge-focused approach
+- **Vocabulary Mode**: Applied for language learning terms, word definitions, and terminology-focused inputs
+- **Knowledge Mode**: Applied for academic concepts, factual information, and technical explanations
+- **Context-Aware**: Decision is based on input context, subject matter, and linguistic patterns
+
+#### Response Format
+```json
+{
+  "status": "success",
+  "metadata": {
+    "original_filename": "text_input",
+    "ai_model": "gemini-2.0-flash",
+    "processing_time_seconds": 2.12
+  },
+  "data": {
+    "correct_choice": "The correct answer or definition",
+    "options": [
+      "First incorrect but plausible option",
+      "Second incorrect but plausible option",
+      "Third incorrect but plausible option"
     ]
   }
 }
@@ -195,6 +240,15 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key ai-learning-generator
 - Improved error messages and handling
 - Enhanced parameter documentation
 - Unified response structure across all endpoints
+- **New Endpoint**: Added `/api/v1/generate-choices` for generating multiple choice options from questions or terms
+- **Intelligent Content Detection**: AI agent automatically determines optimal content type (vocab vs knowledge) based on input context
+
+### Prompt Engineering Improvements
+1. **LangChain Integration**: Migrated from manual string concatenation to LangChain prompt templates
+2. **Template-Based Architecture**: Centralized prompt management with reusable, maintainable templates
+3. **Automatic Template Selection**: Context-aware template selection based on content type and input format
+4. **Code Optimization**: Reduced codebase by ~200 lines through template consolidation
+5. **Enhanced Maintainability**: Single source of truth for all AI prompts with easy modification capabilities
 
 ## Performance Characteristics
 
@@ -233,6 +287,16 @@ curl -X POST "http://localhost:8000/api/v1/generate" \
   -F "file=@document.pdf" \
   -F "num_flashcards=10" \
   -F "num_mcqs=5"
+
+# Generate choices for a question (AI automatically determines content type)
+curl -X POST "http://localhost:8000/api/v1/generate-choices" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "input_text=What is machine learning?"
+
+# Generate choices for a term (AI automatically determines content type)
+curl -X POST "http://localhost:8000/api/v1/generate-choices" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "input_text=photosynthesis"
 ```
 
 ## Technology Stack
@@ -244,14 +308,39 @@ curl -X POST "http://localhost:8000/api/v1/generate" \
 - **Containerization**: Docker + Docker Compose
 - **HTTPS**: OpenSSL, mkcert (for local development)
 
+## Prompt Template Architecture
+
+### Template Organization
+- **ContentGenerationTemplates**: Handles flashcard and MCQ generation
+  - `VOCAB_TEXT_TEMPLATE`: Vocabulary-focused text content
+  - `KNOWLEDGE_TEXT_TEMPLATE`: Knowledge-focused text content
+  - `VOCAB_IMAGE_TEMPLATE`: Vocabulary-focused image content
+  - `KNOWLEDGE_IMAGE_TEMPLATE`: Knowledge-focused image content
+
+- **ChoicesGenerationTemplates**: Handles multiple choice option generation
+  - `QUESTION_TEMPLATE`: For question-based inputs
+  - `TERM_TEMPLATE`: For term-based inputs
+
+- **PromptTemplateManager**: Central coordinator with convenience methods
+  - `get_content_generation_prompt()`: Returns appropriate content template
+  - `get_choices_generation_prompt()`: Returns appropriate choices template
+
+### Benefits
+- **Consistency**: Standardized prompt structure across all AI interactions
+- **Maintainability**: Single point of modification for prompt updates
+- **Scalability**: Easy addition of new templates for different content types
+- **Reusability**: Templates can be shared across different service methods
+- **Validation**: Built-in parameter validation through LangChain
+
 ## Future Enhancement Opportunities
 
-1. **Additional Content Types**: Support for more specialized learning modes (e.g., "concepts", "procedures")
-2. **Content Difficulty Levels**: Adjustable complexity for different learning levels
+1. **Advanced Template Features**: Conditional prompts, few-shot examples, and dynamic template composition
+2. **Content Difficulty Levels**: Template variants for different learning complexity levels
 3. **Batch Processing**: Support for processing multiple files simultaneously
 4. **Export Formats**: Generate content in various formats (Anki, CSV, JSON)
 5. **Learning Analytics**: Track generation patterns and optimize prompts
 6. **Template Customization**: User-defined prompt templates for specific subjects
+7. **A/B Testing**: Template performance comparison and optimization
 
 ---
 

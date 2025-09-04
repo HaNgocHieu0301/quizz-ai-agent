@@ -6,10 +6,11 @@ from app.models.response_models import (
     GenerateContentResponse, 
     GeneratedContent, 
     ResponseMetadata,
-    Card
+    Card,
+    GenerateChoicesResponse,
+    GenerateChoicesData
 )
 from app.core.config import settings
-
 
 class ContentGeneratorService:
     """Main service to orchestrate content generation"""
@@ -132,5 +133,52 @@ class ContentGeneratorService:
             ),
             data=GeneratedContent(
                 cards=cards
+            )
+        )
+
+    
+    async def generate_choices(
+        self, 
+        input_text: str
+    ) -> GenerateChoicesResponse:
+        """
+        Generate multiple choice options for a given question or term.
+        The AI agent automatically determines the appropriate content type.
+        
+        Args:
+            input_text: The question or term to generate choices for
+            
+        Returns:
+            GenerateChoicesResponse with correct choice and incorrect options
+        """
+        start_time = time.time()
+        
+        # Generate choices using AI service (AI agent determines content type automatically)
+        ai_response = await self.ai_service.generate_choices(input_text)
+        
+        # Validate structure
+        if "correct_choice" not in ai_response or "options" not in ai_response:
+            raise ValueError("Missing required fields: correct_choice and options")
+        
+        if not isinstance(ai_response["options"], list):
+            raise ValueError("Options must be a list")
+        
+        if len(ai_response["options"]) != 3:
+            raise ValueError("Must have exactly 3 incorrect options")
+
+        # Calculate processing time
+        processing_time = time.time() - start_time
+        
+        # Build response
+        return GenerateChoicesResponse(
+            status="success",
+            metadata=ResponseMetadata(
+                original_filename="text_input",
+                ai_model=settings.gemini_model,
+                processing_time_seconds=round(processing_time, 2)
+            ),
+            data=GenerateChoicesData(
+                correct_choice=ai_response["correct_choice"],
+                options=ai_response["options"]
             )
         )
