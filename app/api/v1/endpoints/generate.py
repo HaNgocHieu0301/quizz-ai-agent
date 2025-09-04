@@ -30,6 +30,7 @@ router = APIRouter()
     description="Generate flashcards and MCQs from either a file upload OR text input (one is required)"
 )
 async def generate_content(
+    type: str = Form("knowledge", description="Content type: 'vocab' for vocabulary-focused cards, 'knowledge' for general learning content"),
     file: Optional[UploadFile] = File(None, description="File to process (.txt, .md, .pdf, .docx, .png, .jpg, .jpeg)"),
     text: Optional[str] = Form(None, description="Text content to process (alternative to file upload)"),
     num_flashcards: Optional[int] = Form(5, ge=0, le=settings.max_flashcards, description="Number of flashcards to generate"),
@@ -42,12 +43,30 @@ async def generate_content(
     - File Upload: Text files (.txt, .md), Documents (.pdf, .docx), Images (.png, .jpg, .jpeg)
     - Text Input: Direct text content as string
     
+    Content Types:
+    - vocab: Generate vocabulary-focused flashcards (word and meaning pairs)
+    - knowledge: Generate general learning content (default behavior)
+    
     Returns flashcards and multiple choice questions based on the content.
     """
     
     content_generator = ContentGeneratorService()
     
     try:
+        # Validate type parameter
+        if type not in ["vocab", "knowledge"]:
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_type="InvalidParameterError",
+                    message="Invalid type parameter",
+                    details={
+                        "valid_types": ["vocab", "knowledge"],
+                        "provided": type
+                    }
+                ).model_dump()
+            )
+        
         # Validate that exactly one input is provided
         if not file and not text:
             raise HTTPException(
@@ -92,7 +111,8 @@ async def generate_content(
                 file_content=file_content,
                 filename=file.filename or "unknown",
                 num_flashcards=num_flashcards,
-                num_mcqs=num_mcqs
+                num_mcqs=num_mcqs,
+                content_type=type
             )
         
         # Handle text input
@@ -110,7 +130,8 @@ async def generate_content(
             result = await content_generator.generate_content_from_text(
                 text_content=text,
                 num_flashcards=num_flashcards,
-                num_mcqs=num_mcqs
+                num_mcqs=num_mcqs,
+                content_type=type
             )
         
         return result

@@ -3,9 +3,9 @@ import base64
 from typing import Dict, Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
-
 from app.core.config import settings
 from app.core.exceptions import AIServiceError, ContentGenerationError
+from app.utils.ai_response_schema import AIResponseSchemaHandler
 
 
 class AIService:
@@ -25,7 +25,8 @@ class AIService:
         self, 
         processed_data: Dict[str, Any], 
         num_flashcards: int = 5, 
-        num_mcqs: int = 5
+        num_mcqs: int = 5,
+        content_type: str = "knowledge"
     ) -> Dict[str, Any]:
         """
         Generate flashcards and MCQs from processed content
@@ -34,25 +35,26 @@ class AIService:
             processed_data: Processed file data from FileProcessor
             num_flashcards: Number of flashcards to generate
             num_mcqs: Number of MCQs to generate
+            content_type: Type of content to generate ('vocab' or 'knowledge')
             
         Returns:
-            Dict containing generated flashcards and MCQs
+            Dict containing generated cards
         """
         try:
             if processed_data["type"] == "text":
                 return await self._generate_from_text(
-                    processed_data["content"], num_flashcards, num_mcqs
+                    processed_data["content"], num_flashcards, num_mcqs, content_type
                 )
             elif processed_data["type"] == "image":
                 return await self._generate_from_image(
-                    processed_data["content"], num_flashcards, num_mcqs
+                    processed_data["content"], num_flashcards, num_mcqs, content_type
                 )
         except Exception as e:
             raise ContentGenerationError(f"Failed to generate content: {str(e)}")
     
-    async def _generate_from_text(self, text_content: str, num_flashcards: int, num_mcqs: int) -> Dict[str, Any]:
+    async def _generate_from_text(self, text_content: str, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> Dict[str, Any]:
         """Generate content from text"""
-        prompt = self._create_text_prompt(text_content, num_flashcards, num_mcqs)
+        prompt = self._create_text_prompt(text_content, num_flashcards, num_mcqs, content_type)
         
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
@@ -60,7 +62,7 @@ class AIService:
         except Exception as e:
             raise AIServiceError(f"Gemini API call failed: {str(e)}")
     
-    async def _generate_from_image(self, image_content: bytes, num_flashcards: int, num_mcqs: int) -> Dict[str, Any]:
+    async def _generate_from_image(self, image_content: bytes, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> Dict[str, Any]:
         """Generate content from image using multimodal capabilities"""
         
         # Detect image format from image bytes
@@ -69,7 +71,7 @@ class AIService:
         # Convert image to base64 for Gemini
         image_b64 = base64.b64encode(image_content).decode()
         
-        prompt = self._create_image_prompt(num_flashcards, num_mcqs)
+        prompt = self._create_image_prompt(num_flashcards, num_mcqs, content_type)
         
         try:
             # For multimodal input, we need to structure the message with both text and image
@@ -92,80 +94,81 @@ class AIService:
         except Exception as e:
             raise AIServiceError(f"Gemini multimodal API call failed: {str(e)}")
     
-    def _create_text_prompt(self, content: str, num_flashcards: int, num_mcqs: int) -> str:
+    def _create_text_prompt(self, content: str, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> str:
         """Create prompt for text-based content generation"""
+        
+        if content_type == "vocab":
+            focus_instruction = """
+FOCUS: Generate vocabulary-focused learning materials that emphasize key terms and their meanings.
+- Flashcards should focus on important vocabulary words and their definitions
+- MCQs should test understanding of vocabulary meanings and usage
+- Prioritize prominent words, technical terms, and key concepts that learners should know
+"""
+        else:  # knowledge
+            focus_instruction = """
+FOCUS: Generate comprehensive learning materials covering key concepts, facts, and important information.
+- Flashcards should focus on key terms, concepts, definitions, and important facts  
+- MCQs should test understanding and comprehension of the subject matter
+- Cover the main ideas and learning objectives from the content
+"""
+
+        format_template = AIResponseSchemaHandler.get_complete_format_template()
+
         return f"""
 Analyze the following text content and generate educational materials.
 
 TEXT CONTENT:
 {content}
 
-Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choice questions based on the key concepts, facts, and important information from the text.
+{focus_instruction}
+
+Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choice questions based on the content.
 
 REQUIREMENTS:
-1. Flashcards should focus on key terms, concepts, definitions, and important facts
-2. Multiple choice questions should test understanding and comprehension
-3. Each MCQ should have one correct answer with 3 other wrong options
-4. Content should be educational and suitable for learning/studying
+1. Content should be educational and suitable for learning/studying
+2. Each MCQ should have one correct answer with 3 other wrong options
+3. Focus on the most important and relevant information for learners
 
-Return your response as a JSON object with this exact structure:
-{{
-    "cards": [
-        {{
-            "term": "Question or term",
-            "definition": "Answer or definition"
-            "type": "Flashcard or Mcq (flashcard = 1, mcp = 2)
-            "options": [
-                "Option A text",
-                "Option B text", 
-                "Option C text",
-            ] (If type = flashcard = 1 options = []. Besides, options don't contain correct answer)
-        }}
-    ]
-}}
-Ensure the JSON is valid and properly formatted.
+{format_template}
 """
     
-    def _create_image_prompt(self, num_flashcards: int, num_mcqs: int) -> str:
+    def _create_image_prompt(self, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> str:
         """Create prompt for image-based content generation"""
+        
+        if content_type == "vocab":
+            focus_instruction = """
+FOCUS: Generate vocabulary-focused learning materials from the image content.
+- Focus on important vocabulary words, technical terms, and key concepts visible in the image
+- Flashcards should emphasize word-meaning relationships
+- MCQs should test vocabulary understanding and definitions
+"""
+        else:  # knowledge  
+            focus_instruction = """
+FOCUS: Generate comprehensive learning materials covering all key information in the image.
+- Focus on key concepts, facts, processes, and important information shown
+- Cover diagrams, charts, visual information, and any text content
+- Test overall understanding and comprehension of the subject matter
+"""
+
+        format_template = AIResponseSchemaHandler.get_complete_format_template()
+
         return f"""
 Analyze the content shown in this image and generate educational materials based on what you can see and read.
 
+{focus_instruction}
+
 Please generate exactly {num_flashcards} flashcards and {num_mcqs} multiple choice questions based on:
 - Any text visible in the image
-- Diagrams, charts, or visual information
+- Diagrams, charts, or visual information  
 - Key concepts or information presented
 - Important facts or data shown
 
 REQUIREMENTS:
-1. Flashcards should focus on key terms, concepts, definitions, and important facts from the image
-2. Multiple choice questions should test understanding of the visual content
-3. Each MCQ should have 4 options (A, B, C, D) with one correct answer
-4. Content should be educational and suitable for learning/studying
+1. Content should be educational and suitable for learning/studying
+2. Each MCQ should have one correct answer with 3 other wrong options
+3. Focus on the most important and relevant information for learners
 
-Return your response as a JSON object with this exact structure:
-{{
-    "flashcards": [
-        {{
-            "front": "Question or term",
-            "back": "Answer or definition"
-        }}
-    ],
-    "multiple_choice_questions": [
-        {{
-            "question": "Question text",
-            "options": {{
-                "A": "Option A text",
-                "B": "Option B text", 
-                "C": "Option C text",
-                "D": "Option D text"
-            }},
-            "correct_answer": "A"
-        }}
-    ]
-}}
-
-Ensure the JSON is valid and properly formatted.
+{format_template}
 """
     
     def _parse_ai_response(self, response_content: str) -> Dict[str, Any]:

@@ -1,5 +1,4 @@
 import time
-from typing import Dict, Any
 
 from app.services.file_processor import FileProcessor
 from app.services.ai_service import AIService
@@ -7,8 +6,6 @@ from app.models.response_models import (
     GenerateContentResponse, 
     GeneratedContent, 
     ResponseMetadata,
-    Flashcard,
-    MultipleChoiceQuestion,
     Card
 )
 from app.core.config import settings
@@ -26,7 +23,8 @@ class ContentGeneratorService:
         file_content: bytes, 
         filename: str, 
         num_flashcards: int = 5, 
-        num_mcqs: int = 5
+        num_mcqs: int = 5,
+        content_type: str = "knowledge"
     ) -> GenerateContentResponse:
         """
         Main method to generate learning content from uploaded file
@@ -36,6 +34,7 @@ class ContentGeneratorService:
             filename: Original filename
             num_flashcards: Number of flashcards to generate
             num_mcqs: Number of MCQs to generate
+            content_type: Type of content to generate ('vocab' or 'knowledge')
             
         Returns:
             GenerateContentResponse with generated content
@@ -47,22 +46,18 @@ class ContentGeneratorService:
         
         # Generate content using AI
         ai_response = await self.ai_service.generate_learning_content(
-            processed_data, num_flashcards, num_mcqs
+            processed_data, num_flashcards, num_mcqs, content_type
         )
         
-        # Convert to response models
-        flashcards = [
-            Flashcard(front=fc["front"], back=fc["back"])
-            for fc in ai_response["flashcards"]
-        ]
-        
-        mcqs = [
-            MultipleChoiceQuestion(
-                question=mcq["question"],
-                options=mcq["options"],
-                correct_answer=mcq["correct_answer"]
+        # Convert to response models using Card format (like generate_content_from_text)
+        cards = [
+            Card(
+                term=card["term"],
+                definition=card["definition"],
+                type=card["type"],
+                options=card["options"]
             )
-            for mcq in ai_response["multiple_choice_questions"]
+            for card in ai_response["cards"]
         ]
         
         # Calculate processing time
@@ -77,8 +72,7 @@ class ContentGeneratorService:
                 processing_time_seconds=round(processing_time, 2)
             ),
             data=GeneratedContent(
-                flashcards=flashcards,
-                multiple_choice_questions=mcqs
+                cards=cards
             )
         )
     
@@ -86,7 +80,8 @@ class ContentGeneratorService:
         self, 
         text_content: str, 
         num_flashcards: int = 5, 
-        num_mcqs: int = 5
+        num_mcqs: int = 5,
+        content_type: str = "knowledge"
     ) -> GenerateContentResponse:
         """
         Generate learning content directly from text input
@@ -95,6 +90,7 @@ class ContentGeneratorService:
             text_content: Raw text content
             num_flashcards: Number of flashcards to generate
             num_mcqs: Number of MCQs to generate
+            content_type: Type of content to generate ('vocab' or 'knowledge')
             
         Returns:
             GenerateContentResponse with generated content
@@ -110,23 +106,9 @@ class ContentGeneratorService:
         
         # Generate content using AI
         ai_response = await self.ai_service.generate_learning_content(
-            processed_data, num_flashcards, num_mcqs
+            processed_data, num_flashcards, num_mcqs, content_type
         )
         
-        # Convert to response models
-        # flashcards = [
-        #     Flashcard(front=fc["front"], back=fc["back"])
-        #     for fc in ai_response["flashcards"]
-        # ]
-        
-        # mcqs = [
-        #     MultipleChoiceQuestion(
-        #         question=mcq["question"],
-        #         options=mcq["options"],
-        #         correct_answer=mcq["correct_answer"]
-        #     )
-        #     for mcq in ai_response["multiple_choice_questions"]
-        # ]
         cards = [
             Card(
                 term=card["term"],
