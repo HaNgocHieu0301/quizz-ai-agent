@@ -6,8 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ai-learning-generator
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - DEBUG=False
@@ -25,19 +25,17 @@ services:
       retries: 3
       start_period: 40s
 
-  # Optional: Add nginx reverse proxy for production
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: ai-agent-nginx
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
-  #   depends_on:
-  #     - ai-agent
-  #   restart: unless-stopped
-
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    depends_on:
+      - ai-agent
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
 networks:
   default:
     name: ai-agent-network
+
+    # docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token eyJhIjoiMDI0MGMzYmI4M2QzY2U1ZTlhYjExNzU2YmRmZDlhMTQiLCJ0IjoiMjNjNmU3ZGUtNjNlYS00ZWU4LWFlOGUtMGY0ODY0YzkwMzE5IiwicyI6Ik5HWmpabVExWXpFdE4yUTJOQzAwWlRBeExXSXhaR1l0Tm1Oa05XTTBPREV4TXpSaCJ9
