@@ -8,7 +8,10 @@ from app.models.response_models import (
     ResponseMetadata,
     Card,
     GenerateChoicesResponse,
-    GenerateChoicesData
+    GenerateChoicesData,
+    GenerateTestResponse,
+    GenerateTestData,
+    TestAnswerData
 )
 from app.core.config import settings
 
@@ -180,5 +183,63 @@ class ContentGeneratorService:
             data=GenerateChoicesData(
                 correct_choice=ai_response["correct_choice"],
                 options=ai_response["options"]
+            )
+        )
+
+    async def generate_test(
+        self, 
+        questions_list: list[str]
+    ) -> GenerateTestResponse:
+        """
+        Generate a complete test from a list of questions/terms.
+        The AI agent automatically determines the appropriate content type for each question/term.
+        
+        Args:
+            questions_list: List of questions/terms to generate test from
+            
+        Returns:
+            GenerateTestResponse with test questions, correct answers and options
+        """
+        start_time = time.time()
+        
+        # Generate test using AI service (AI agent determines content type automatically)
+        ai_response = await self.ai_service.generate_test(questions_list)
+        
+        # Validate structure
+        if "test_questions" not in ai_response:
+            raise ValueError("Missing required field: test_questions")
+        
+        if not isinstance(ai_response["test_questions"], list):
+            raise ValueError("test_questions must be a list")
+
+        # Build test questions in key-value format
+        test_questions_dict = {}
+        for item in ai_response["test_questions"]:
+            if not all(key in item for key in ["question", "correct_answer", "options"]):
+                raise ValueError("Each test question must have question, correct_answer, and options")
+            
+            if not isinstance(item["options"], list) or len(item["options"]) != 3:
+                raise ValueError("Each test question must have exactly 3 incorrect options")
+            
+            # Use question/term as key, answer data as value
+            question_key = item["question"]
+            test_questions_dict[question_key] = TestAnswerData(
+                correct_answer=item["correct_answer"],
+                options=item["options"]
+            )
+
+        # Calculate processing time
+        processing_time = time.time() - start_time
+        
+        # Build response
+        return GenerateTestResponse(
+            status="success",
+            metadata=ResponseMetadata(
+                original_filename="test_input",
+                ai_model=settings.gemini_model,
+                processing_time_seconds=round(processing_time, 2)
+            ),
+            data=GenerateTestData(
+                test_questions=test_questions_dict
             )
         )

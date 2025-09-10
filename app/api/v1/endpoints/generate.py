@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 
 from app.services.content_generator import ContentGeneratorService
-from app.models.response_models import GenerateContentResponse, GenerateChoicesResponse, ErrorResponse
+from app.models.response_models import GenerateContentResponse, GenerateChoicesResponse, GenerateTestResponse, ErrorResponse
 from app.core.exceptions import (
     UnsupportedFileTypeError,
     FileSizeExceededError,
@@ -246,6 +246,100 @@ async def generate_choices(
             detail=ErrorResponse(
                 error_type="AIServiceError",
                 message="Failed to generate choices. Please try again."
+            ).model_dump()
+        )
+    
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                error_type="InternalServerError",
+                message="An unexpected error occurred. Please try again."
+            ).model_dump()
+        )
+
+
+@router.post(
+    "/generate-test",
+    response_model=GenerateTestResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request"},
+        422: {"model": ErrorResponse, "description": "Validation Error"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
+    summary="Generate Test Questions",
+    description="Generate test with correct answers and options for a list of questions/terms"
+)
+async def generate_test(
+    questions: str = Form(..., description="Comma-separated list of questions/terms (1-50 items)")
+):
+    """
+    Generate a complete test from a list of questions/terms.
+    
+    The AI agent automatically determines the appropriate content type for each question/term:
+    - Questions: Generates answer choices (1 correct + 3 incorrect but related)
+    - Terms: Generates definition choices (1 correct definition + 3 incorrect but related definitions)
+    - Content Type: Automatically determined as 'vocab' or 'knowledge' based on input context
+    
+    Input Format:
+    - Comma-separated string of questions/terms
+    - Example: "What is machine learning?,photosynthesis,What is the capital of France?"
+    - Mixed content supported (questions and terms in the same request)
+    
+    Returns test questions in key-value format: question/term -> {correct_answer, options}
+    """
+    
+    content_generator = ContentGeneratorService()
+    
+    try:
+        # Validate input
+        if not questions or not questions.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_type="EmptyInputError",
+                    message="Questions parameter cannot be empty"
+                ).model_dump()
+            )
+        
+        # Parse questions list
+        questions_list = [q.strip() for q in questions.split(",") if q.strip()]
+        
+        if not questions_list:
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_type="EmptyQuestionsListError",
+                    message="No valid questions found after parsing"
+                ).model_dump()
+            )
+        
+        if len(questions_list) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_type="TooManyQuestionsError",
+                    message="Too many questions provided",
+                    details={
+                        "max_questions": 50,
+                        "provided": len(questions_list)
+                    }
+                ).model_dump()
+            )
+        
+        # Generate test
+        result = await content_generator.generate_test(questions_list)
+        
+        return result
+        
+    except (AIServiceError, ContentGenerationError) as e:
+        logger.error(f"AI service error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                error_type="AIServiceError",
+                message="Failed to generate test. Please try again."
             ).model_dump()
         )
     

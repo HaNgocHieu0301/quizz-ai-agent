@@ -184,12 +184,53 @@ Respond with ONLY a JSON object in this exact format:
         return cls.QUESTION_TEMPLATE if is_question else cls.TERM_TEMPLATE
 
 
+class TestGenerationTemplates:
+    """Prompt templates for test generation"""
+    
+    TEST_TEMPLATE = PromptTemplate(
+        input_variables=["questions_list"],
+        template="""You are an AI educational content generator. Your task is to generate a comprehensive test from a list of questions and terms.
+
+For each item in the list, you need to:
+1. Determine if it's a question or a term
+2. Automatically select the appropriate content type (vocab or knowledge based on context)
+3. Generate 1 correct answer and 3 incorrect but plausible options
+
+IMPORTANT GUIDELINES:
+- For questions: Generate answer choices (1 correct + 3 incorrect but related answers)
+- For terms: Generate definition choices (1 correct definition + 3 incorrect but related definitions)
+- Incorrect options should be plausible but clearly wrong
+- Maintain consistency with the educational context
+
+Questions/Terms to process:
+{questions_list}
+
+You must return your response in the following JSON format:
+{{
+  "test_questions": [
+    {{
+      "question": "The question or term",
+      "correct_answer": "The correct answer or definition", 
+      "options": [
+        "First incorrect but plausible option",
+        "Second incorrect but plausible option", 
+        "Third incorrect but plausible option"
+      ]
+    }}
+  ]
+}}
+
+Make sure to return valid JSON only, no additional text or explanations."""
+    )
+
+
 class PromptTemplateManager:
     """Main manager for all prompt templates"""
     
     def __init__(self):
         self.content_templates = ContentGenerationTemplates()
         self.choices_templates = ChoicesGenerationTemplates()
+        self.test_templates = TestGenerationTemplates()
     
     def get_content_generation_prompt(self, content: str, num_flashcards: int, num_mcqs: int, 
                                     content_type: str = "knowledge", is_image: bool = False) -> str:
@@ -216,6 +257,12 @@ class PromptTemplateManager:
         """Generate prompt for choices generation"""
         template = self.choices_templates.get_choices_template(input_text)
         return template.format(input_text=input_text)
+
+    def get_test_generation_prompt(self, questions_list: list[str]) -> str:
+        """Generate prompt for test generation"""
+        # Convert list to a formatted string
+        questions_formatted = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions_list)])
+        return self.test_templates.TEST_TEMPLATE.format(questions_list=questions_formatted)
 
 
 # Global instance for easy access

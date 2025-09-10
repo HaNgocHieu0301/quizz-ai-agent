@@ -43,3 +43,15 @@ class GenerateChoicesResponse(BaseModel):
     status: str
     metadata: ResponseMetadata
     data: GenerateChoicesData
+
+class TestAnswerData(BaseModel):
+    correct_answer: str
+    options: List[str]  # 3 incorrect but plausible options
+
+class GenerateTestData(BaseModel):
+    test_questions: Dict[str, TestAnswerData]  # key-value format: question/term -> answer data
+
+class GenerateTestResponse(BaseModel):
+    status: str
+    metadata: ResponseMetadata
+    data: GenerateTestData

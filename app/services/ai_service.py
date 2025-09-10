@@ -67,6 +67,21 @@ class AIService:
             return FormatHelper.format_ai_response(response.content)
         except Exception as e:
             raise ContentGenerationError(f"Failed to generate choices: {str(e)}")
+
+    async def generate_test(
+        self, 
+        questions_list: list[str]
+    ) -> Dict[str, Any]:
+        """
+        Generate a complete test from a list of questions/terms.
+        The AI agent automatically determines the appropriate content type for each question/term.
+        """
+        try:
+            prompt = prompt_manager.get_test_generation_prompt(questions_list)
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            return FormatHelper.format_ai_response(response.content)
+        except Exception as e:
+            raise ContentGenerationError(f"Failed to generate test: {str(e)}")
     
     async def _generate_from_text(self, text_content: str, num_flashcards: int, num_mcqs: int, content_type: str = "knowledge") -> Dict[str, Any]:
         """Generate content from text using prompt templates"""

@@ -60,6 +60,7 @@ ai-agent/
 #### 1. API Layer (`app/api/v1/endpoints/generate.py`)
 - **Primary Endpoint**: `POST /api/v1/generate`
 - **Choices Endpoint**: `POST /api/v1/generate-choices`
+- **Test Generation Endpoint**: `POST /api/v1/generate-test`
 - **Input Validation**: Ensures exactly one input method (file or text)
 - **Parameter Handling**: Validates content type, flashcard/MCQ counts
 - **Error Management**: Comprehensive error handling with detailed responses
@@ -164,6 +165,57 @@ ai-agent/
 }
 ```
 
+### Test Generation Endpoint: `/api/v1/generate-test`
+
+#### Parameters
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `questions` | String | Yes | - | Comma-separated list of questions or terms to generate test from (1-50 items) |
+
+#### Input Format
+- **Comma-Separated String**: Questions/terms separated by commas
+- **Example**: `"What is machine learning?,photosynthesis,What is the capital of France?"`
+- **Mixed Content**: Combination of questions and terms in the same request
+- **Parsing**: Automatically splits on commas and trims whitespace
+
+#### Automatic Content Type Detection
+- **AI-Powered Analysis**: The AI agent automatically determines the appropriate content type for each question/term
+- **Vocabulary Mode**: Applied for terminology, definitions, and language learning content
+- **Knowledge Mode**: Applied for factual questions, academic concepts, and general knowledge
+- **Individual Processing**: Each question in the list is processed independently with optimal content type detection
+
+#### Response Format (Key-Value Structure)
+```json
+{
+  "status": "success",
+  "metadata": {
+    "original_filename": "test_input",
+    "ai_model": "gemini-2.0-flash",
+    "processing_time_seconds": 3.12
+  },
+  "data": {
+    "test_questions": {
+      "What is machine learning?": {
+        "correct_answer": "A type of artificial intelligence that allows computer systems to learn from data without being explicitly programmed.",
+        "options": [
+          "A programming language used for developing web applications.",
+          "A hardware component used in computer systems for data storage.",
+          "A method of data encryption used to secure online transactions."
+        ]
+      },
+      "photosynthesis": {
+        "correct_answer": "The process by which plants use sunlight to synthesize foods from carbon dioxide and water.",
+        "options": [
+          "The process by which animals digest food.",
+          "The process of cellular respiration in animals.", 
+          "The breakdown of rocks by physical and chemical means."
+        ]
+      }
+    }
+  }
+}
+```
+
 ## Content Generation Logic
 
 ### Vocabulary Mode (type="vocab")
@@ -241,7 +293,9 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key ai-learning-generator
 - Enhanced parameter documentation
 - Unified response structure across all endpoints
 - **New Endpoint**: Added `/api/v1/generate-choices` for generating multiple choice options from questions or terms
+- **Test Generation Endpoint**: Added `/api/v1/generate-test` for creating complete MCQ tests from lists of questions/terms
 - **Intelligent Content Detection**: AI agent automatically determines optimal content type (vocab vs knowledge) based on input context
+- **Key-Value Response Format**: Updated `/api/v1/generate-test` endpoint to return responses in key-value format where question/term is key and answer data is value
 
 ### Prompt Engineering Improvements
 1. **LangChain Integration**: Migrated from manual string concatenation to LangChain prompt templates
@@ -249,6 +303,13 @@ docker run -p 8000:8000 -e GEMINI_API_KEY=your_key ai-learning-generator
 3. **Automatic Template Selection**: Context-aware template selection based on content type and input format
 4. **Code Optimization**: Reduced codebase by ~200 lines through template consolidation
 5. **Enhanced Maintainability**: Single source of truth for all AI prompts with easy modification capabilities
+
+### Test Generation Format Update
+1. **Key-Value Structure**: Modified response format from array of objects to dictionary/object structure
+2. **Response Models Update**: Updated `GenerateTestData` to use `Dict[str, TestAnswerData]` instead of `List[TestQuestion]`
+3. **Enhanced Accessibility**: Questions/terms now serve as direct keys for easier data access and manipulation
+4. **Backward Compatibility**: Maintained all existing functionality while improving response structure
+5. **Template Integration**: Added `TestGenerationTemplates` class with dedicated prompt templates for test generation
 
 ## Performance Characteristics
 
@@ -297,6 +358,10 @@ curl -X POST "http://localhost:8000/api/v1/generate-choices" \
 curl -X POST "http://localhost:8000/api/v1/generate-choices" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "input_text=photosynthesis"
+
+# Generate a complete MCQ test from multiple questions/terms (key-value format response)
+curl -X POST "http://localhost:8000/api/v1/generate-test" \
+  -F "questions=What is machine learning?,photosynthesis,What is the capital of France?,neural network"
 ```
 
 ## Technology Stack
@@ -321,9 +386,13 @@ curl -X POST "http://localhost:8000/api/v1/generate-choices" \
   - `QUESTION_TEMPLATE`: For question-based inputs
   - `TERM_TEMPLATE`: For term-based inputs
 
+- **TestGenerationTemplates**: Handles complete test generation
+  - `TEST_TEMPLATE`: For generating tests from lists of questions/terms with automatic content type detection
+
 - **PromptTemplateManager**: Central coordinator with convenience methods
   - `get_content_generation_prompt()`: Returns appropriate content template
   - `get_choices_generation_prompt()`: Returns appropriate choices template
+  - `get_test_generation_prompt()`: Returns test generation template
 
 ### Benefits
 - **Consistency**: Standardized prompt structure across all AI interactions
